@@ -1,5 +1,6 @@
 import AVFoundation
 import AVKit
+import Combine
 import Photos
 import SwiftUI
 
@@ -14,11 +15,10 @@ struct CameraApp: App {
 
 struct CameraView: View {
 	@StateObject private var cameraModel = CameraModel()
-	@State private var selectionSpeed = 17
-	@State private var selectionGPS = 0
-	@State private var selectionISO = 0
-	@State private var selectionTimer = 0
-	private let viewfinderHeight = UIScreen.main.bounds.width * 4 / 3
+	@State private var selectionGPS = UserDefaults.standard.integer(forKey: "settingGPS") != 0 ? UserDefaults.standard.integer(forKey: "settingGPS") : 0
+	@State private var selectionISO = UserDefaults.standard.integer(forKey: "settingISO") != 0 ? UserDefaults.standard.integer(forKey: "settingISO") : 0
+	@State private var selectionSpeed = UserDefaults.standard.integer(forKey: "settingSpeed") != 0 ? UserDefaults.standard.integer(forKey: "settingSpeed") : 17
+	@State private var selectionTimer = UserDefaults.standard.integer(forKey: "settingTimer") != 0 ? UserDefaults.standard.integer(forKey: "settingTimer") : 0
 	private let optionsGPS: [String] = ["OFF", "ON"]
 	private let optionsISO: [Int] = [
 		100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000,
@@ -29,6 +29,7 @@ struct CameraView: View {
 		200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000
 	]
 	private let optionsTimer: [Int] = [0, 1, 2, 3, 5, 10, 15]
+	private let viewfinderHeight = UIScreen.main.bounds.width * 4 / 3
 	
 	var body: some View {
 		VStack {
@@ -57,6 +58,7 @@ struct CameraView: View {
 						.onChange(of: selectionISO) {
 							cameraModel.settingISO = Float(optionsISO[selectionISO])
 							cameraModel.updateSettings()
+							UserDefaults.standard.set(selectionISO, forKey: "settingISO")
 						}
 						.frame(maxWidth: .infinity, maxHeight: .infinity)
 						.rotationEffect(.degrees(90.0))
@@ -70,6 +72,7 @@ struct CameraView: View {
 							let denom = optionsSpeed[selectionSpeed]
 							cameraModel.settingSpeed = CMTimeMake(value: 1, timescale: Int32(denom))
 							cameraModel.updateSettings()
+							UserDefaults.standard.set(selectionSpeed, forKey: "settingSpeed")
 						}
 						.frame(maxWidth: .infinity, maxHeight: .infinity)
 						.rotationEffect(.degrees(90.0))
@@ -81,6 +84,7 @@ struct CameraView: View {
 						}
 						.onChange(of: selectionTimer) {
 							cameraModel.settingTimer = optionsTimer[selectionTimer]
+							UserDefaults.standard.set(selectionTimer, forKey: "settingTimer")
 						}
 						.frame(maxWidth: .infinity, maxHeight: .infinity)
 						.rotationEffect(.degrees(90.0))
@@ -99,6 +103,7 @@ struct CameraView: View {
 								cameraModel.settingGPS = true
 								cameraModel.startLocationUpdates()
 							}
+							UserDefaults.standard.set(selectionGPS, forKey: "settingGPS")
 						}
 						.frame(maxWidth: .infinity, maxHeight: .infinity)
 						.rotationEffect(.degrees(90.0))
@@ -188,17 +193,16 @@ class CameraModel: NSObject, ObservableObject {
 	@Published var currentLocation: CLLocation?
 	@Published var isAuthorized = false
 	@Published var isShowingFlash = false
-	// TODO: These values should be saved between sessions
 	@Published var settingGPS: Bool = false
 	@Published var settingISO: Float = 100.0
 	@Published var settingSpeed: CMTime = CMTimeMake(value: 1, timescale: 100)
 	@Published var settingTimer: Int = 0
-	// ----------
 	@Published var showPermissionAlert = false
 	let captureSession = AVCaptureSession()
 	private let locationManager = CLLocationManager()
 	private let photoOutput = AVCapturePhotoOutput()
 	private let sessionQueue = DispatchQueue(label: "cameraSessionQueue")
+	private var cancellables = Set<AnyCancellable>()
 	private var videoDeviceInput: AVCaptureDeviceInput? = nil
 	
 	func capturePhoto() {
@@ -284,6 +288,7 @@ class CameraModel: NSObject, ObservableObject {
 	}
 	
 	func updateSettings() {
+		
 		sessionQueue.async {
 			guard let device = self.videoDeviceInput?.device else { return }
 			try? device.lockForConfiguration()
