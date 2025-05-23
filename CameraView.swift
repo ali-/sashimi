@@ -15,37 +15,96 @@ struct CameraApp: App {
 
 struct CameraView: View {
 	@StateObject private var cameraModel = CameraModel()
-	@State private var selectionGPS = UserDefaults.standard.integer(forKey: "settingGPS") != 0 ? UserDefaults.standard.integer(forKey: "settingGPS") : 0
+	@State private var isShowingGrid = UserDefaults.standard.bool(forKey: "settingGrid")
+	@State private var isUsingGPS = UserDefaults.standard.bool(forKey: "settingGPS")
 	@State private var selectionISO = UserDefaults.standard.integer(forKey: "settingISO") != 0 ? UserDefaults.standard.integer(forKey: "settingISO") : 0
 	@State private var selectionSpeed = UserDefaults.standard.integer(forKey: "settingSpeed") != 0 ? UserDefaults.standard.integer(forKey: "settingSpeed") : 17
 	@State private var selectionTimer = UserDefaults.standard.integer(forKey: "settingTimer") != 0 ? UserDefaults.standard.integer(forKey: "settingTimer") : 0
-	private let optionsGPS: [String] = ["OFF", "ON"]
-	private let optionsISO: [Int] = [
+	private let optionsISO = [
 		100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000,
 		1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000
 	]
-	private let optionsSpeed: [Int] = [
+	private let optionsSpeed = [
 		1, 2, 3, 4, 5, 6, 8, 10, 13, 15, 20, 25, 30, 40, 50, 60, 80, 100, 125, 160,
 		200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000
 	]
-	private let optionsTimer: [Int] = [0, 1, 2, 3, 5, 10, 15]
+	private let optionsTimer = [0, 1, 2, 3, 5, 10, 15]
 	private let viewfinderHeight = UIScreen.main.bounds.width * 4 / 3
 	
 	var body: some View {
 		VStack {
 			if cameraModel.isAuthorized {
-				Spacer()
-					.frame(height: 50)
+				HStack {
+					Button(action: {
+						isShowingGrid.toggle()
+						UserDefaults.standard.set(isShowingGrid, forKey: "settingGrid")
+					}) {
+						VStack(spacing: 10) {
+							Image(systemName: "squareshape.split.3x3")
+							Text("Grid")
+								.font(.system(size: 14.0))
+						}
+						.font(.system(size: 24.0))
+						.foregroundColor(isShowingGrid ? .yellow : .gray)
+						.rotationEffect(.degrees(90.0))
+					}
+					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+					
+					Button(action: {
+						if isUsingGPS {
+							cameraModel.settingGPS = false
+							cameraModel.stopLocationUpdates()
+						}
+						else {
+							cameraModel.settingGPS = true
+							cameraModel.startLocationUpdates()
+						}
+						isUsingGPS.toggle()
+						UserDefaults.standard.set(isUsingGPS, forKey: "settingGPS")
+					}) {
+						VStack(spacing: 10) {
+							Image(systemName: "antenna.radiowaves.left.and.right")
+							Text("GPS")
+								.font(.system(size: 14.0))
+						}
+						.font(.system(size: 24.0))
+						.foregroundColor(isUsingGPS ? .yellow : .gray)
+						.rotationEffect(.degrees(90.0))
+					}
+					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+				}
+				.frame(maxWidth: .infinity, alignment: .trailing)
+				.frame(height: 50)
 				
 				ZStack {
 					CameraPreview(cameraModel: cameraModel)
 						.onTapGesture {
 							cameraModel.capturePhoto()
 						}
+						.overlay(
+							isShowingGrid ?
+								VStack(spacing: 0) {
+									ForEach(0..<3) { _ in
+										HStack(spacing: 0) {
+											ForEach(0..<3) { _ in
+												Rectangle()
+													.fill(Color.clear)
+													.overlay(
+														RoundedRectangle(cornerRadius: 0)
+															.stroke(Color.white.opacity(0.25), lineWidth: 1)
+													)
+											}
+										}
+									}
+								}
+							: nil
+						)
+
 					if cameraModel.isShowingFlash {
-						Text(" ")
-							.frame(maxWidth: .infinity, maxHeight: .infinity)
+						Text(":-)")
+							.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 							.background(.black)
+							.foregroundColor(.white)
 					}
 				}
 				.frame(height: viewfinderHeight)
@@ -85,25 +144,6 @@ struct CameraView: View {
 						.onChange(of: selectionTimer) {
 							cameraModel.settingTimer = optionsTimer[selectionTimer]
 							UserDefaults.standard.set(selectionTimer, forKey: "settingTimer")
-						}
-						.frame(maxWidth: .infinity, maxHeight: .infinity)
-						.rotationEffect(.degrees(90.0))
-						.foregroundColor(.white)
-						.clipped()
-						
-						ZStack {
-							SettingSelector(selection: $selectionGPS, name: "GPS", options: optionsGPS)
-						}
-						.onChange(of: selectionGPS) {
-							if selectionGPS == 0 {
-								cameraModel.settingGPS = false
-								cameraModel.stopLocationUpdates()
-							}
-							else {
-								cameraModel.settingGPS = true
-								cameraModel.startLocationUpdates()
-							}
-							UserDefaults.standard.set(selectionGPS, forKey: "settingGPS")
 						}
 						.frame(maxWidth: .infinity, maxHeight: .infinity)
 						.rotationEffect(.degrees(90.0))
@@ -193,10 +233,10 @@ class CameraModel: NSObject, ObservableObject {
 	@Published var currentLocation: CLLocation?
 	@Published var isAuthorized = false
 	@Published var isShowingFlash = false
-	@Published var settingGPS: Bool = false
+	@Published var settingGPS = false
 	@Published var settingISO: Float = 100.0
-	@Published var settingSpeed: CMTime = CMTimeMake(value: 1, timescale: 100)
-	@Published var settingTimer: Int = 0
+	@Published var settingSpeed = CMTimeMake(value: 1, timescale: 100)
+	@Published var settingTimer = 0
 	@Published var showPermissionAlert = false
 	let captureSession = AVCaptureSession()
 	private let locationManager = CLLocationManager()
