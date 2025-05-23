@@ -44,9 +44,8 @@ struct CameraView: View {
 							Text("Grid")
 								.font(.system(size: 14.0))
 						}
-						.font(.system(size: 24.0))
 						.foregroundColor(isShowingGrid ? .yellow : .gray)
-						.rotationEffect(.degrees(90.0))
+						.styleCameraToggle()
 					}
 					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 					
@@ -67,9 +66,8 @@ struct CameraView: View {
 							Text("GPS")
 								.font(.system(size: 14.0))
 						}
-						.font(.system(size: 24.0))
 						.foregroundColor(isUsingGPS ? .yellow : .gray)
-						.rotationEffect(.degrees(90.0))
+						.styleCameraToggle()
 					}
 					.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 				}
@@ -119,10 +117,7 @@ struct CameraView: View {
 							cameraModel.updateSettings()
 							UserDefaults.standard.set(selectionISO, forKey: "settingISO")
 						}
-						.frame(maxWidth: .infinity, maxHeight: .infinity)
-						.rotationEffect(.degrees(90.0))
-						.foregroundColor(.white)
-						.clipped()
+						.styleCameraSetting()
 						
 						ZStack {
 							SettingSelector(selection: $selectionSpeed, name: "SHUTTER", options: optionsSpeed)
@@ -133,10 +128,7 @@ struct CameraView: View {
 							cameraModel.updateSettings()
 							UserDefaults.standard.set(selectionSpeed, forKey: "settingSpeed")
 						}
-						.frame(maxWidth: .infinity, maxHeight: .infinity)
-						.rotationEffect(.degrees(90.0))
-						.foregroundColor(.white)
-						.clipped()
+						.styleCameraSetting()
 						
 						ZStack {
 							SettingSelector(selection: $selectionTimer, name: "TIMER", options: optionsTimer)
@@ -145,10 +137,7 @@ struct CameraView: View {
 							cameraModel.settingTimer = optionsTimer[selectionTimer]
 							UserDefaults.standard.set(selectionTimer, forKey: "settingTimer")
 						}
-						.frame(maxWidth: .infinity, maxHeight: .infinity)
-						.rotationEffect(.degrees(90.0))
-						.foregroundColor(.white)
-						.clipped()
+						.styleCameraSetting()
 					}
 					.frame(maxWidth: .infinity)
 					.font(.system(.body, design: .monospaced))
@@ -386,5 +375,19 @@ extension CameraModel: AVCapturePhotoCaptureDelegate {
 extension CameraModel: CLLocationManagerDelegate {
 	func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
 		self.currentLocation = locations.last
+	}
+}
+
+extension View {
+	func styleCameraSetting() -> some View {
+		self	.frame(maxWidth: .infinity, maxHeight: .infinity)
+				.rotationEffect(.degrees(90.0))
+				.foregroundColor(.white)
+				.clipped()
+	}
+	
+	func styleCameraToggle() -> some View {
+		self	.font(.system(size: 24.0))
+				.rotationEffect(.degrees(90.0))
 	}
 }
